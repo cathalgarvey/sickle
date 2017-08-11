@@ -102,12 +102,18 @@ class Sickle(object):
         :rtype: :class:`sickle.OAIResponse`
         """
         for _ in range(self.max_retries):
-            if self.http_method == 'GET':
-                http_response = requests.get(self.endpoint, params=kwargs,
-                                             **self.request_args)
-            else:
-                http_response = requests.post(self.endpoint, data=kwargs,
-                                              **self.request_args)
+            retry_after = 20
+            try:
+                if self.http_method == 'GET':
+                    http_response = requests.get(self.endpoint, params=kwargs,
+                                                 **self.request_args)
+                else:
+                    http_response = requests.post(self.endpoint, data=kwargs,
+                                                  **self.request_args)
+            except requests.exceptions.ConnectionError as E:
+                logger.warning("ConnectionError: {}".format(E))
+                time.sleep(retry_after)
+                continue
             if http_response.status_code == 503:
                 try:
                     retry_after = int(http_response.headers.get('retry-after'))
