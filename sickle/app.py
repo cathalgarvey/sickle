@@ -54,7 +54,10 @@ class Sickle(object):
            (default: :class:`sickle.iterator.OAIItemIterator`)
     :param max_retries: Number of retries if HTTP request fails.
     :type max_retries: int
-    :type protocol_version: str
+    :param no_records_match_means_finished: Whether to treat a "No Records Match"
+                                            server error as a sign the harvest is
+                                            finished.
+    :type no_records_match_means_finished: bool
     :param class_mapping: A dictionary that maps OAI verbs to classes representing
                           OAI items. If not provided,
                           :data:`sickle.app.DEFAULT_CLASS_MAPPING` will be used.
@@ -75,7 +78,8 @@ class Sickle(object):
 
     def __init__(self, endpoint, http_method='GET', protocol_version='2.0',
                  iterator=OAIItemIterator, max_retries=5,
-                 class_mapping=None, encoding=None, **request_args):
+                 class_mapping=None, encoding=None,
+                 no_records_match_means_finished=False, **request_args):
         self.endpoint = endpoint
         if http_method not in ['GET', 'POST']:
             raise ValueError("Invalid HTTP method: %s! Must be GET or POST.")
@@ -93,6 +97,7 @@ class Sickle(object):
         self.oai_namespace = OAI_NAMESPACE % self.protocol_version
         self.class_mapping = class_mapping or DEFAULT_CLASS_MAP
         self.encoding = encoding
+        self.no_records_match_means_finished = no_records_match_means_finished
         self.request_args = request_args
 
     def harvest(self, **kwargs):  # pragma: no cover
@@ -138,7 +143,10 @@ class Sickle(object):
         params = kwargs
         params.update({'verb': 'ListRecords'})
         # noinspection PyCallingNonCallable
-        return self.iterator(self, params, ignore_deleted=ignore_deleted)
+        return self.iterator(self,
+                             params,
+                             no_records_match_means_finished=self.no_records_match_means_finished,
+                             ignore_deleted=ignore_deleted)
 
     def ListIdentifiers(self, ignore_deleted=False, **kwargs):
         """Issue a ListIdentifiers request.
@@ -150,7 +158,9 @@ class Sickle(object):
         params = kwargs
         params.update({'verb': 'ListIdentifiers'})
         return self.iterator(self,
-                             params, ignore_deleted=ignore_deleted)
+                             params,
+                             no_records_match_means_finished=self.no_records_match_means_finished,
+                             ignore_deleted=ignore_deleted)
 
     def ListSets(self, **kwargs):
         """Issue a ListSets request.
@@ -159,7 +169,7 @@ class Sickle(object):
         """
         params = kwargs
         params.update({'verb': 'ListSets'})
-        return self.iterator(self, params)
+        return self.iterator(self, params, no_records_match_means_finished=self.no_records_match_means_finished)
 
     def Identify(self):
         """Issue an Identify request.
@@ -173,7 +183,10 @@ class Sickle(object):
         """Issue a ListSets request."""
         params = kwargs
         params.update({'verb': 'GetRecord'})
-        record = self.iterator(self, params).next()
+        record = self.iterator(self,
+                               params,
+                               no_records_match_means_finished=self.no_records_match_means_finished
+                              ).next()
         return record
 
     def ListMetadataFormats(self, **kwargs):
@@ -183,4 +196,4 @@ class Sickle(object):
         """
         params = kwargs
         params.update({'verb': 'ListMetadataFormats'})
-        return self.iterator(self, params)
+        return self.iterator(self, params, no_records_match_means_finished=self.no_records_match_means_finished)
