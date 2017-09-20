@@ -129,9 +129,10 @@ class OAIItemIterator(BaseOAIIterator):
     :type ignore_deleted: bool
     """
 
-    def __init__(self, sickle, params, ignore_deleted=False):
+    def __init__(self, sickle, params, ignore_deleted=False, no_records_match_means_finished=False):
         self.mapper = sickle.class_mapping[params.get('verb')]
         self.element = VERBS_ELEMENTS[params.get('verb')]
+        self.no_records_match_means_finished = no_records_match_means_finished
         super(OAIItemIterator, self).__init__(sickle, params, ignore_deleted)
 
     def _next_response(self):
@@ -148,6 +149,12 @@ class OAIItemIterator(BaseOAIIterator):
                     continue
                 return mapped
             if self.resumption_token and self.resumption_token.token:
-                self._next_response()
+                try:
+                    self._next_response()
+                except oaiexceptions.NoRecordsMatch as NRME:
+                    if self.no_records_match_means_finished:
+                        raise StopIteration
+                    else:
+                        raise NRME
             else:
                 raise StopIteration
